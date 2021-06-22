@@ -152,7 +152,7 @@ contract CryptoTycoon is Ownable, ERC721{
         return newIndex;
     }
 
-    function createCat(string _title, string _type)
+    function createCat(string _type)
     external
     returns(uint)
     {
@@ -293,4 +293,3 @@ contract CryptoTycoon is Ownable, ERC721{
         platform = _base.platform;
     }
 }
-
