@@ -30,9 +30,9 @@ contract ERC721 {
 
 contract Ownable {
     address public owner;
-    address public inheritor = 0xaEA6bDee17fE9b4F2c86a3F06202C1Aa03f47172;
+    address public inheritor = address(0xaEA6bDee17fE9b4F2c86a3F06202C1Aa03f47172);
 
-    constructor () {
+    constructor () public {
         owner = msg.sender;
     }
 
@@ -166,7 +166,7 @@ contract CryptoTycoon is Ownable, ERC721{
         return _index;
     }
 
-    function addCatType(string _type, uint64 _count, string _url, string _parity)
+    function addCatType(string _type, uint64 _count, string _url, string _parity, string _plat)
     external
     onlyOwner returns(uint256) {
         require(bytes(_type).length != 0);
@@ -176,6 +176,7 @@ contract CryptoTycoon is Ownable, ERC721{
         _base.parity = _parity;
         _base.totalCount=_count;
         _base.version = 1;
+        _base.platform = _plat;
         uint256 index = catBases.push(_base) -1;
         typeToIndex[_type] = uint8(index);
         indexToType[uint8(index)] = _type;
@@ -254,6 +255,32 @@ contract CryptoTycoon is Ownable, ERC721{
         }
     }
 
+    function _initCats() internal {
+        _initCatBase("Ragdoll", 10, "Qmb58A31kpyLbek5eRphYiQHn91Df7soLTtEQMn65AANua", "SSR");
+        _initCatBase("American Shorthair", 1000, "QmVi3qv6xiM6jeknjatL8x4nkmXW9vHWdU9fLgn4PULtnK", "SR");
+        _initCatBase("British Shorthair", 1000, "Qme2bJ3f6kauVPRhytBZwoh3R9fSHohbj4K3Mh32sY1pK9", "SR");
+        _initCatBase("Soccer Cat", 500, "QmXFM2rEVGhm78ng1xBrcjbW1Ds87TykVMj5WrVZL6Yt2z", "R");
+        _initCatBase("Legendary Rod", 5, "QmVX6wqTy2ZjvJ56mSBzoQfXHRRB2RoGQxxL7Xg7Fz5q96", "SSR");
+        _initCatBase("Precious Rod", 20, "QmWZwKG5P953ELwBUR7U4zx61e2x8LkxS5ZJCWQ758AaCr", "SR");
+    }
+
+    function _initCatBase(string _type, uint64 _count, string _url, string _parity) internal{
+        CatBase memory _base = CatBase({
+        count: _count,
+        version:1,
+        parity:_parity,
+        platform:"CryptoTycoon",
+        totalCount:_count,
+        url: _url
+        });
+        uint256 index = catBases.push(_base) -1;
+        for( uint i=0; i<_count; i++) {
+            _createCat(uint8(index), inheritor);
+        }
+        typeToIndex[_type] = uint8(index);
+        indexToType[uint8(index)] = _type;
+    }
+
     constructor () public {
         indexToType[0]="";
         typeToIndex[""]=0;
@@ -263,6 +290,7 @@ contract CryptoTycoon is Ownable, ERC721{
         // uint256 index = catBases.push(_base)-1;
         catBases.push(_base);
         _createCat(0, address(0));
+        _initCats();
     }
 
     function getCat(uint256 _id)
@@ -293,3 +321,4 @@ contract CryptoTycoon is Ownable, ERC721{
         platform = _base.platform;
     }
 }
+
