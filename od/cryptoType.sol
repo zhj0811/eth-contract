@@ -24,8 +24,6 @@ contract ERC721 {
     // function tokensOfOwner(address _owner) external view returns (uint256[] tokenIds);
     // function tokenMetadata(uint256 _tokenId, string _preferredTransport) public view returns (string infoUrl);
 
-    // ERC-165 Compatibility (https://github.com/ethereum/EIPs/issues/165)
-    function supportsInterface(bytes4 _interfaceID) external view returns (bool);
 }
 
 contract Ownable {
@@ -41,14 +39,13 @@ contract Ownable {
         _;
     }
 
-    function transferOwnership(address newOwner) public onlyOwner {
+    function transferOwnership(address newOwner) onlyOwner {
         if (newOwner != address(0)) {
             owner = newOwner;
         }
     }
 
-    function transferInheritor(address newInheritor)
-    public onlyOwner {
+    function transferInheritor(address newInheritor) onlyOwner {
         if (newInheritor != address(0)) {
             inheritor = newInheritor;
         }
@@ -58,7 +55,7 @@ contract Ownable {
 contract CryptoTycoon is Ownable, ERC721{
 
     struct CatBase {
-        string name;
+        string url;
         string parity;
         string platform;
         uint64 totalCount;
@@ -68,7 +65,6 @@ contract CryptoTycoon is Ownable, ERC721{
 
     struct Cat {
         uint8 catType;
-        uint64 indexOfType;
         uint64 birth;
     }
 
@@ -79,8 +75,7 @@ contract CryptoTycoon is Ownable, ERC721{
     mapping (uint256 => address) public indexToApproved;
     mapping (address => uint256) ownershipTokenCount;
     mapping (string => uint8) typeToIndex;
-    mapping (uint8 => string) public indexToType;
-    mapping (uint8 => mapping(uint64 => uint256)) tokenIdOfTypeIndex;
+    mapping (uint8 => string) indexToType;
 
     function _transfer(address _from, address _to, uint256 _tokenId) internal {
         // Since the number of kittens is capped to 2^32 we can't overflow this
@@ -142,77 +137,53 @@ contract CryptoTycoon is Ownable, ERC721{
         _transfer(_from, _to, _tokenId);
     }
 
-    function _createCat(uint8 _catType, uint64 _indexOfType, address _to) internal
+    function _createCat(uint8 _catType, address _to) internal
     returns (uint)
     {
         Cat memory _cat =Cat({
         catType: _catType,
-        indexOfType: _indexOfType,
         birth: uint64(now)
         });
 
         uint256 newIndex = cats.push(_cat) - 1;
         _transfer(0, _to, newIndex);
-        tokenIdOfTypeIndex[_catType][_indexOfType] = newIndex;
         return newIndex;
     }
 
-    function createCat(string _cid)
+    function createCat(string _type)
     external
     returns(uint)
     {
-        uint8 index = typeToIndex[_cid];
+        uint8 index = typeToIndex[_type];
         require(index != 0);
         CatBase memory _base = catBases[index];
         require(_base.count<_base.totalCount);
         _base.count++;
         catBases[index] = _base;
-        uint _index = _createCat(index, _base.count, inheritor);
+        uint _index = _createCat(index, inheritor);
         return _index;
     }
 
-    function addCatType(string _cid, uint64 _count, string _name, uint256 _version, string _parity, string _plat)
+    function addCatType(string _type, uint64 _count, string _url, string _parity, string _plat)
     external
     onlyOwner returns(uint256) {
-        require(bytes(_cid).length != 0);
-        require(typeToIndex[_cid] == 0);
+        require(bytes(_type).length != 0);
+        require(typeToIndex[_type] == 0);
         CatBase memory _base;
-        _base.name = _name;
+        _base.url = _url;
         _base.parity = _parity;
         _base.totalCount=_count;
-        _base.version = uint8(_version);
+        _base.version = 1;
         _base.platform = _plat;
         uint256 index = catBases.push(_base) -1;
-        typeToIndex[_cid] = uint8(index);
-        indexToType[uint8(index)] = _cid;
+        typeToIndex[_type] = uint8(index);
+        indexToType[uint8(index)] = _type;
         return index;
     }
 
     string public constant name = "CatNFT";
     string public constant symbol = "CTT";
 
-    bytes4 constant InterfaceSignature_ERC165 =
-    bytes4(keccak256('supportsInterface(bytes4)'));
-
-    bytes4 constant InterfaceSignature_ERC721 =
-    bytes4(keccak256('name()')) ^
-    bytes4(keccak256('symbol()')) ^
-    bytes4(keccak256('totalSupply()')) ^
-    bytes4(keccak256('balanceOf(address)')) ^
-    bytes4(keccak256('ownerOf(uint256)')) ^
-    bytes4(keccak256('approve(address,uint256)')) ^
-    bytes4(keccak256('transfer(address,uint256)')) ^
-    bytes4(keccak256('transferFrom(address,address,uint256)')) ^
-    bytes4(keccak256('tokensOfOwner(address)')) ^
-    bytes4(keccak256('tokenMetadata(uint256,string)'));
-
-    function supportsInterface(bytes4 _interfaceID) external view returns (bool)
-    {
-        // DEBUG ONLY
-        //require((InterfaceSignature_ERC165 == 0x01ffc9a7) && (InterfaceSignature_ERC721 == 0x9a20483d));
-
-        return ((_interfaceID == InterfaceSignature_ERC165) || (_interfaceID == InterfaceSignature_ERC721));
-    }
 
     function totalSupply() public view returns (uint) {
         return cats.length - 1;
@@ -269,32 +240,34 @@ contract CryptoTycoon is Ownable, ERC721{
         _initCatBase("Precious Rod", 20, "QmWZwKG5P953ELwBUR7U4zx61e2x8LkxS5ZJCWQ758AaCr", "SR");
     }
 
-    function _initCatBase(string _name, uint64 _count, string _cid, string _parity) internal{
+    function _initCatBase(string _type, uint64 _count, string _url, string _parity) internal{
         CatBase memory _base = CatBase({
         count: 0,
         version:1,
         parity:_parity,
         platform:"CryptoTycoon",
         totalCount:_count,
-        name: _name
+        url: _url
         });
         uint256 index = catBases.push(_base) -1;
-        typeToIndex[_cid] = uint8(index);
-        indexToType[uint8(index)] = _cid;
+        // for( uint i=0; i<_count; i++) {
+        //     _createCat(uint8(index), inheritor);
+        // }
+        typeToIndex[_type] = uint8(index);
+        indexToType[uint8(index)] = _type;
     }
 
-    function createMultiCats(string _cid, uint256 _count)
+    function createMultiCats(string _type, uint256 _count)
     external
     onlyOwner {
-        uint8 index = typeToIndex[_cid];
+        uint8 index = typeToIndex[_type];
         require(index != 0);
         CatBase memory _base = catBases[index];
         require(_base.count+_count<=_base.totalCount);
-        uint64 _initCount = _base.count;
-        _base.count =_initCount+uint64(_count);
+        _base.count =_base.count+uint64(_count);
         catBases[index] = _base;
-        for( uint64 i=0; i<_count; i++) {
-            _createCat(uint8(index), uint64(_initCount+i+1),inheritor);
+        for( uint i=0; i<_count; i++) {
+            _createCat(uint8(index), inheritor);
         }
     }
 
@@ -306,59 +279,36 @@ contract CryptoTycoon is Ownable, ERC721{
         _base.totalCount =1;
         // uint256 index = catBases.push(_base)-1;
         catBases.push(_base);
-        _createCat(0, 1, address(0));
+        _createCat(0, address(0));
         _initCats();
     }
 
     function getCat(uint256 _id)
     external
     view
-    returns(string cid, uint256 indexOfType, uint256 birth, string parity, string _name, uint8 version, string platform)
+    returns(string catType, uint256 birth, string parity, string url, uint8 version, string platform)
     {
         Cat storage cat =cats[_id];
         CatBase storage _base=catBases[cat.catType];
-        cid = indexToType[cat.catType];
+        catType = indexToType[cat.catType];
         birth = uint256(cat.birth);
-        _name = _base.name;
-        parity = _base.parity;
-        version = _base.version;
-        platform = _base.platform;
-        indexOfType= cat.indexOfType;
-    }
-
-    function getCatByTypeIndex(string _cid, uint64 _indexOfType)
-    external
-    view
-    returns(uint256 _tokenId, uint256 birth, string parity, string _name, uint8 version, string platform){
-        uint8 _type= typeToIndex[_cid];
-        _tokenId = tokenIdOfTypeIndex[_type][_indexOfType];
-        Cat storage cat =cats[_tokenId];
-        CatBase storage _base =catBases[cat.catType];
-        birth = uint256(cat.birth);
-        _name = _base.name;
+        url = _base.url;
         parity = _base.parity;
         version = _base.version;
         platform = _base.platform;
     }
 
-    function getCatTypeInfo(string _cid)
+    function getCatTypeInfo(string _type)
     external
     view
-    returns(string parity, string _name, uint8 version, string platform, uint256 count, uint256 totalCount){
-        uint8 _index = typeToIndex[_cid];
+    returns(string parity, string url, uint8 version, string platform){
+        uint8 _index = typeToIndex[_type];
         require(_index < catBases.length);
         CatBase storage _base=catBases[_index];
-        _name = _base.name;
+        url = _base.url;
         parity = _base.parity;
         version = _base.version;
         platform = _base.platform;
-        count = _base.count;
-        totalCount = _base.totalCount;
     }
 
-    function getCatTypeCount()
-    public view
-    returns(uint256){
-        return cats.length - 1;
-    }
 }
