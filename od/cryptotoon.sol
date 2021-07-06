@@ -1,31 +1,49 @@
 // CryptoKitties Source code
 // Copied from: https://etherscan.io/address/0x06012c8cf97bead5deae237070f9587f8e7a266d#code
 
-pragma solidity ^0.4.22;
+pragma solidity ^0.8.0;
 
 /// @title Interface for contracts conforming to ERC-721: Non-Fungible Tokens
 /// @author Dieter Shirley <dete@axiomzen.co> (https://github.com/dete)
-contract ERC721 {
+abstract contract ERC721 {
     // Required methods
-    function totalSupply() public view returns (uint256 total);
-    function balanceOf(address _owner) public view returns (uint256 balance);
-    function ownerOf(uint256 _tokenId) external view returns (address owner);
-    function approve(address _to, uint256 _tokenId) external;
-    function transfer(address _to, uint256 _tokenId) external;
-    function transferFrom(address _from, address _to, uint256 _tokenId) external;
+    function totalSupply() public view virtual returns (uint256 total);
+    function balanceOf(address _owner) public view virtual returns (uint256 balance);
+    function ownerOf(uint256 _tokenId) external view virtual returns (address owner);
+    function approve(address _to, uint256 _tokenId) virtual external;
+    function transfer(address _to, uint256 _tokenId) virtual external;
+    function transferFrom(address _from, address _to, uint256 _tokenId) virtual external;
+    function safeTransferFrom(address from, address to, uint256 tokenId) public virtual;
+    function safeTransferFrom(address from, address to, uint256 tokenId, bytes calldata data) virtual external;
 
     // Events
     event Transfer(address from, address to, uint256 tokenId);
     event Approval(address owner, address approved, uint256 tokenId);
+    event ApprovalForAll(address indexed owner, address indexed operator, bool approved);
+
 
     // Optional
     // function name() public view returns (string name);
     // function symbol() public view returns (string symbol);
     // function tokensOfOwner(address _owner) external view returns (uint256[] tokenIds);
     // function tokenMetadata(uint256 _tokenId, string _preferredTransport) public view returns (string infoUrl);
+    function tokenURI(uint256 _tokenId) external view virtual returns (string memory);
 
     // ERC-165 Compatibility (https://github.com/ethereum/EIPs/issues/165)
-    function supportsInterface(bytes4 _interfaceID) external view returns (bool);
+    function supportsInterface(bytes4 _interfaceID) external view virtual returns (bool);
+}
+
+interface IERC721Receiver {
+    /**
+     * @dev Whenever an {IERC721} `tokenId` token is transferred to this contract via {IERC721-safeTransferFrom}
+     * by `operator` from `from`, this function is called.
+     *
+     * It must return its Solidity selector to confirm the token transfer.
+     * If any other value is returned or the interface is not implemented by the recipient, the transfer will be reverted.
+     *
+     * The selector can be obtained in Solidity with `IERC721.onERC721Received.selector`.
+     */
+    function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata data) external returns (bytes4);
 }
 
 contract Ownable {
@@ -81,6 +99,7 @@ contract CryptoTycoon is Ownable, ERC721{
     mapping (string => uint8) typeToIndex;
     mapping (uint8 => string) public indexToType;
     mapping (uint8 => mapping(uint64 => uint256)) tokenIdOfTypeIndex;
+    mapping (address => mapping (address => bool)) _operatorApprovals;
 
     function _transfer(address _from, address _to, uint256 _tokenId) internal {
         // Since the number of kittens is capped to 2^32 we can't overflow this
@@ -100,7 +119,7 @@ contract CryptoTycoon is Ownable, ERC721{
         return indexToOwner[_tokenId] == _claimant;
     }
 
-    function balanceOf(address _owner) public view returns (uint256 count) {
+    function balanceOf(address _owner) public view override returns (uint256 count) {
         return ownershipTokenCount[_owner];
     }
 
@@ -116,7 +135,7 @@ contract CryptoTycoon is Ownable, ERC721{
         address _to,
         uint256 _tokenId
     )
-    external
+    external override
     {
         // Safety check to prevent against an unexpected 0x0 default.
         require(_to != address(0));
@@ -135,11 +154,103 @@ contract CryptoTycoon is Ownable, ERC721{
         _transfer(msg.sender, _to, _tokenId);
     }
 
-    function transferFrom(address _from, address _to, uint256 _tokenId) external{
+    function transferFrom(address _from, address _to, uint256 _tokenId) external override {
         require(_to != address(0));
         require(_approvedFor(msg.sender, _tokenId));
         require(_owns(_from, _tokenId));
         _transfer(_from, _to, _tokenId);
+    }
+
+    function getApproved(uint256 tokenId) public view  returns (address) {
+        require(_exists(tokenId), "ERC721: approved query for nonexistent token");
+
+        return indexToApproved[tokenId];
+    }
+
+    function setApprovalForAll(address operator, bool approved) public{
+        require(operator != msg.sender, "ERC721: approve to caller");
+
+        _operatorApprovals[ msg.sender][operator] = approved;
+        emit ApprovalForAll( msg.sender, operator, approved);
+    }
+
+    function isApprovedForAll(address owner, address operator) public view returns (bool) {
+        return _operatorApprovals[owner][operator];
+    }
+
+    function safeTransferFrom(address from, address to, uint256 tokenId) public virtual override {
+        safeTransferFrom(from, to, tokenId, "");
+    }
+    function _isApprovedOrOwner(address spender, uint256 tokenId) internal view virtual returns (bool) {
+        require(_exists(tokenId), "ERC721: operator query for nonexistent token");
+        return (_owns(spender, tokenId) || getApproved(tokenId) == spender || isApprovedForAll(owner, spender));
+    }
+
+
+
+    function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory _data) public virtual override {
+        require(_isApprovedOrOwner(msg.sender, tokenId), "ERC721: transfer caller is not owner nor approved");
+        _safeTransfer(from, to, tokenId, _data);
+    }
+
+
+
+    function tokenOfOwnerByIndex(address owner, uint256 index) public view virtual returns (uint256) {
+        uint256 totalcats = totalSupply();
+        require(index < totalcats, "ERC721Enumerable: owner index out of bounds");
+        uint256 resultCount;
+        uint256 catId;
+        for (catId = 1; catId <= totalcats; catId++) {
+            if (indexToOwner[catId] == owner) {
+                if (resultCount == index) {
+                    return catId;
+                }
+                resultCount++;
+            }
+        }
+        return catId;
+    }
+
+    function tokenByIndex(uint256 index) public view virtual returns (uint256) {
+        require(index < totalSupply(), "ERC721Enumerable: global index out of bounds");
+        return index;
+    }
+
+    function _safeTransfer(address from, address to, uint256 tokenId, bytes memory _data) internal virtual {
+        _transfer(from, to, tokenId);
+        require(_checkOnERC721Received(from, to, tokenId, _data), "ERC721: transfer to non ERC721Receiver implementer");
+    }
+
+    function isContract(address account) internal view returns (bool) {
+        // This method relies on extcodesize, which returns 0 for contracts in
+        // construction, since the code is only stored at the end of the
+        // constructor execution.
+
+        uint256 size;
+        // solhint-disable-next-line no-inline-assembly
+        assembly { size := extcodesize(account) }
+        return size > 0;
+    }
+
+    function _checkOnERC721Received(address from, address to, uint256 tokenId, bytes memory _data)
+    private returns (bool)
+    {
+        if (isContract(to)) {
+            try IERC721Receiver(to).onERC721Received(msg.sender, from, tokenId, _data) returns (bytes4 retval) {
+                return retval == IERC721Receiver(to).onERC721Received.selector;
+            } catch (bytes memory reason) {
+                if (reason.length == 0) {
+                    revert("ERC721: transfer to non ERC721Receiver implementer");
+                } else {
+                    // solhint-disable-next-line no-inline-assembly
+                    assembly {
+                        revert(add(32, reason), mload(reason))
+                    }
+                }
+            }
+        } else {
+            return true;
+        }
     }
 
     function _createCat(uint8 _catType, uint64 _indexOfType, address _to) internal
@@ -148,16 +259,17 @@ contract CryptoTycoon is Ownable, ERC721{
         Cat memory _cat =Cat({
         catType: _catType,
         indexOfType: _indexOfType,
-        birth: uint64(now)
+        birth: uint64(block.timestamp)
         });
 
-        uint256 newIndex = cats.push(_cat) - 1;
-        _transfer(0, _to, newIndex);
+        uint256 newIndex = cats.length;
+        cats.push(_cat);
+        _transfer(address(0), _to, newIndex);
         tokenIdOfTypeIndex[_catType][_indexOfType] = newIndex;
         return newIndex;
     }
 
-    function createCat(string _cid)
+    function createCat(string memory _cid)
     external
     returns(uint)
     {
@@ -171,7 +283,7 @@ contract CryptoTycoon is Ownable, ERC721{
         return _index;
     }
 
-    function addCatType(string _cid, uint64 _count, string _name, uint256 _version, string _parity, string _plat)
+    function addCatType(string memory _cid, uint64 _count, string memory _name, uint256 _version, string memory _parity, string memory _plat)
     external
     onlyOwner returns(uint256) {
         require(bytes(_cid).length != 0);
@@ -182,7 +294,8 @@ contract CryptoTycoon is Ownable, ERC721{
         _base.totalCount=_count;
         _base.version = uint8(_version);
         _base.platform = _plat;
-        uint256 index = catBases.push(_base) -1;
+        uint256 index = catBases.length;
+        catBases.push(_base);
         typeToIndex[_cid] = uint8(index);
         indexToType[uint8(index)] = _cid;
         return index;
@@ -190,37 +303,63 @@ contract CryptoTycoon is Ownable, ERC721{
 
     string public constant name = "CatNFT";
     string public constant symbol = "CTT";
+    string public constant baseURI = "https://ipfs.io/ipfs/";
 
     bytes4 constant InterfaceSignature_ERC165 =
     bytes4(keccak256('supportsInterface(bytes4)'));
 
-    bytes4 constant InterfaceSignature_ERC721 =
-    bytes4(keccak256('name()')) ^
-    bytes4(keccak256('symbol()')) ^
-    bytes4(keccak256('totalSupply()')) ^
-    bytes4(keccak256('balanceOf(address)')) ^
-    bytes4(keccak256('ownerOf(uint256)')) ^
-    bytes4(keccak256('approve(address,uint256)')) ^
-    bytes4(keccak256('transfer(address,uint256)')) ^
-    bytes4(keccak256('transferFrom(address,address,uint256)')) ^
-    bytes4(keccak256('tokensOfOwner(address)')) ^
-    bytes4(keccak256('tokenMetadata(uint256,string)'));
-
-    function supportsInterface(bytes4 _interfaceID) external view returns (bool)
+    bytes4 private constant _INTERFACE_ID_ERC721 = 0x80ac58cd;
+    bytes4 private constant _INTERFACE_ID_ERC721_METADATA = 0x5b5e139f;
+    bytes4 private constant _INTERFACE_ID_ERC721_ENUMERABLE = 0x780e9d63;
+    function supportsInterface(bytes4 _interfaceID) external view override returns (bool)
     {
         // DEBUG ONLY
         //require((InterfaceSignature_ERC165 == 0x01ffc9a7) && (InterfaceSignature_ERC721 == 0x9a20483d));
 
-        return ((_interfaceID == InterfaceSignature_ERC165) || (_interfaceID == InterfaceSignature_ERC721));
+        return ((_interfaceID == InterfaceSignature_ERC165) || (_interfaceID == _INTERFACE_ID_ERC721_ENUMERABLE)  || (_interfaceID == _INTERFACE_ID_ERC721)  || (_interfaceID == _INTERFACE_ID_ERC721_METADATA));
     }
 
-    function totalSupply() public view returns (uint) {
+    function toString(uint256 value) internal pure returns (string memory) {
+        // Inspired by OraclizeAPI's implementation - MIT licence
+        // https://github.com/oraclize/ethereum-api/blob/b42146b063c7d6ee1358846c198246239e9360e8/oraclizeAPI_0.4.25.sol
+
+        if (value == 0) {
+            return "0";
+        }
+        uint256 temp = value;
+        uint256 digits;
+        while (temp != 0) {
+            digits++;
+            temp /= 10;
+        }
+        bytes memory buffer = new bytes(digits);
+        while (value != 0) {
+            digits -= 1;
+            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
+            value /= 10;
+        }
+        return string(buffer);
+    }
+
+    function tokenURI(uint256 _tokenId) external view override
+    returns (string memory){
+        Cat storage cat =cats[_tokenId];
+        // CatBase storage _base=catBases[cat.catType];
+        string memory cid = indexToType[cat.catType];
+        // bytes memory b = new bytes(8);
+        // assembly { mstore(add(b, 8), cat.indexOfType) }
+        return string(abi.encodePacked(baseURI, cid, "/", toString(uint256(cat.indexOfType)), ".json"));
+    }
+
+
+    function totalSupply() public view override
+    returns (uint) {
         return cats.length - 1;
     }
 
     function ownerOf(uint256 _tokenId)
     external
-    view
+    view override
     returns (address owner)
     {
         owner = indexToOwner[_tokenId];
@@ -228,13 +367,13 @@ contract CryptoTycoon is Ownable, ERC721{
         require(owner != address(0));
     }
 
-    function approve(address _to, uint256 _tokenId) external{
+    function approve(address _to, uint256 _tokenId) external override {
         require(_owns(msg.sender, _tokenId));
         _approve(_tokenId, _to);
         emit Approval(msg.sender, _to, _tokenId);
     }
 
-    function tokensOfOwner(address _owner) external view returns(uint256[] ownerTokens) {
+    function tokensOfOwner(address _owner) external view returns(uint256[] memory ownerTokens) {
         uint256 tokenCount = balanceOf(_owner);
 
         if (tokenCount == 0) {
@@ -260,16 +399,20 @@ contract CryptoTycoon is Ownable, ERC721{
         }
     }
 
-    function _initCats() internal {
-        _initCatBase("Ragdoll", 10, "Qmb58A31kpyLbek5eRphYiQHn91Df7soLTtEQMn65AANua", "SSR");
-        _initCatBase("American Shorthair", 1000, "QmVi3qv6xiM6jeknjatL8x4nkmXW9vHWdU9fLgn4PULtnK", "SR");
-        _initCatBase("British Shorthair", 1000, "Qme2bJ3f6kauVPRhytBZwoh3R9fSHohbj4K3Mh32sY1pK9", "SR");
-        _initCatBase("Soccer Cat", 500, "QmXFM2rEVGhm78ng1xBrcjbW1Ds87TykVMj5WrVZL6Yt2z", "R");
-        _initCatBase("Legendary Rod", 5, "QmVX6wqTy2ZjvJ56mSBzoQfXHRRB2RoGQxxL7Xg7Fz5q96", "SSR");
-        _initCatBase("Precious Rod", 20, "QmWZwKG5P953ELwBUR7U4zx61e2x8LkxS5ZJCWQ758AaCr", "SR");
+    function _exists(uint256 tokenId) internal view returns (bool) {
+        return indexToOwner[tokenId] != address(0);
     }
 
-    function _initCatBase(string _name, uint64 _count, string _cid, string _parity) internal{
+    function _initCats() internal {
+        _initCatBase("Ragdoll", 500, "QmcFQnphTBoqu8EKtNedDDdTYbQTadaLD9F7NmfB7WkJf4", "SSR");
+        _initCatBase("American Shorthair", 4500, "QmVo5hni1BJDPj8YQeDKtrKenWomiiX3uvCHFPbVnpZ1dB", "SR");
+        // _initCatBase("British Shorthair", 1000, "Qme2bJ3f6kauVPRhytBZwoh3R9fSHohbj4K3Mh32sY1pK9", "SR");
+        // _initCatBase("Soccer Cat", 500, "QmXFM2rEVGhm78ng1xBrcjbW1Ds87TykVMj5WrVZL6Yt2z", "R");
+        // _initCatBase("Legendary Rod", 5, "QmVX6wqTy2ZjvJ56mSBzoQfXHRRB2RoGQxxL7Xg7Fz5q96", "SSR");
+        // _initCatBase("Precious Rod", 20, "QmWZwKG5P953ELwBUR7U4zx61e2x8LkxS5ZJCWQ758AaCr", "SR");
+    }
+
+    function _initCatBase(string memory _name, uint64 _count, string memory _cid, string memory _parity) internal{
         CatBase memory _base = CatBase({
         count: 0,
         version:1,
@@ -278,12 +421,13 @@ contract CryptoTycoon is Ownable, ERC721{
         totalCount:_count,
         name: _name
         });
-        uint256 index = catBases.push(_base) -1;
+        uint256 index = catBases.length;
+        catBases.push(_base);
         typeToIndex[_cid] = uint8(index);
         indexToType[uint8(index)] = _cid;
     }
 
-    function createMultiCats(string _cid, uint256 _count)
+    function createMultiCats(string memory _cid, uint256 _count)
     external
     onlyOwner {
         uint8 index = typeToIndex[_cid];
@@ -313,7 +457,7 @@ contract CryptoTycoon is Ownable, ERC721{
     function getCat(uint256 _id)
     external
     view
-    returns(string cid, uint256 indexOfType, uint256 birth, string parity, string _name, uint8 version, string platform)
+    returns(string memory cid, uint256 indexOfType, uint256 birth, string memory parity, string memory _name, uint8 version, string memory platform)
     {
         Cat storage cat =cats[_id];
         CatBase storage _base=catBases[cat.catType];
@@ -326,10 +470,10 @@ contract CryptoTycoon is Ownable, ERC721{
         indexOfType= cat.indexOfType;
     }
 
-    function getCatByTypeIndex(string _cid, uint64 _indexOfType)
+    function getCatByTypeIndex(string memory _cid, uint64 _indexOfType)
     external
     view
-    returns(uint256 _tokenId, uint256 birth, string parity, string _name, uint8 version, string platform){
+    returns(uint256 _tokenId, uint256 birth, string memory parity, string memory _name, uint8 version, string memory platform){
         uint8 _type= typeToIndex[_cid];
         _tokenId = tokenIdOfTypeIndex[_type][_indexOfType];
         Cat storage cat =cats[_tokenId];
@@ -341,10 +485,10 @@ contract CryptoTycoon is Ownable, ERC721{
         platform = _base.platform;
     }
 
-    function getCatTypeInfo(string _cid)
+    function getCatTypeInfo(string memory _cid)
     external
     view
-    returns(string parity, string _name, uint8 version, string platform, uint256 count, uint256 totalCount){
+    returns(string memory parity, string memory _name, uint8 version, string memory platform, uint256 count, uint256 totalCount){
         uint8 _index = typeToIndex[_cid];
         require(_index < catBases.length);
         CatBase storage _base=catBases[_index];
