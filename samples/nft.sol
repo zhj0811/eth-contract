@@ -48,7 +48,7 @@ interface IERC721Receiver {
 
 contract Ownable {
     address public owner;
-    address public inheritor = address(0xaEA6bDee17fE9b4F2c86a3F06202C1Aa03f47172);
+    address public inheritor = address(0x14E9C26570651b4bEEd4D657189dcCb0501eA932);
 
     constructor () public {
         owner = msg.sender;
