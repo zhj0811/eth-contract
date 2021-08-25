@@ -16,6 +16,13 @@ contract ERC721 {
     event Transfer(address from, address to, uint256 tokenId);
     event Approval(address owner, address approved, uint256 tokenId);
 
+    // Optional
+    // function name() public view returns (string name);
+    // function symbol() public view returns (string symbol);
+    // function tokensOfOwner(address _owner) external view returns (uint256[] tokenIds);
+    // function tokenMetadata(uint256 _tokenId, string _preferredTransport) public view returns (string infoUrl);
+
+    // ERC-165 Compatibility (https://github.com/ethereum/EIPs/issues/165)
     function supportsInterface(bytes4 _interfaceID) external view returns (bool);
 
 }
@@ -29,7 +36,7 @@ contract Ownable {
         _;
     }
 
-    function transferOwnership(address newOwner) external onlyOwner {
+    function transferOwnership(address newOwner) onlyOwner {
         if (newOwner != address(0)) {
             owner = newOwner;
         }
@@ -54,10 +61,10 @@ contract SubBase {
         // it will throw if transfer fails
         nonFungibleContract.transfer(_receiver, _tokenId);
     }
-    //    function _createRandom() internal returns (uint256)
-    //    {
-    //        return uint256(keccak256(abi.encodePacked(block.difficulty, now)));
-    //    }
+    function _createRandom() internal returns (uint256)
+    {
+        return uint256(keccak256(abi.encodePacked(block.difficulty, now)));
+    }
 }
 
 
@@ -94,6 +101,8 @@ contract ClockAuction is Ownable, SubBase {
     event AuctionSuccessful(uint256 tokenId, uint256 totalPrice, address winner);
     event AuctionCancelled(uint256 tokenId);
 
+    event AuctionBid(uint256 tokenId, uint256 price, address player);
+
     constructor(address _nftAddress) public{
         ERC721 candidateContract = ERC721(_nftAddress);
         require(candidateContract.supportsInterface(InterfaceSignature_ERC721));
@@ -110,7 +119,6 @@ contract ClockAuction is Ownable, SubBase {
         // Require that all auctions have a duration of
         // at least one minute. (Keeps our math from getting hairy!)
         require(_auction.duration >= 1 minutes);
-        require(_auction.endingPrice >= _auction.startingPrice);
 
         tokenIdToAuction[_tokenId] = _auction;
 
@@ -150,11 +158,6 @@ contract ClockAuction is Ownable, SubBase {
         //  statement in the ClockAuction constructor). The result of this
         //  function is always guaranteed to be <= _price.
         return _price * ownerCut / 10000;
-    }
-
-    function setCut(uint256 _cut) external onlyOwner {
-        require(_cut <= 10000);
-        ownerCut = _cut;
     }
 
     function createAuction(
@@ -202,31 +205,29 @@ contract ClockAuction is Ownable, SubBase {
         require(_isOnAuction(auction));
         require(_bidAmount>=auction.startingPrice);
         require(_bidAmount>auction.bidPrice);
+
+        if (auction.bidPrice>0) {
+            auction.bidder.transfer(auction.bidPrice);
+        }
+
         if (_bidAmount >= auction.endingPrice) {
             emit AuctionSuccessful(_tokenId, _bidAmount, msg.sender);
             address seller = auction.seller;
             _removeAuction(_tokenId);
-            uint256 operCut = _computeCut(_bidAmount);
-            owner.transfer(operCut);
-            seller.transfer(_bidAmount-operCut);
+            seller.transfer(_bidAmount);
 
             _transfer(msg.sender, _tokenId);
         } else {
             auction.bidPrice=uint128(_bidAmount);
             auction.bidder=msg.sender;
         }
-        auction.bidder.transfer(auction.bidPrice);
+        emit AuctionBid(_tokenId, _bidAmount, msg.sender);
     }
 
     function bidEnd(uint256 _tokenId)
     external
     {
         Auction storage auction = tokenIdToAuction[_tokenId];
-
-        if (auction.bidPrice< auction.startingPrice) {
-            _removeAuction(_tokenId);
-            return;
-        }
 
         require(now>(auction.duration+auction.startedAt));
         require(auction.bidPrice>auction.startingPrice);
@@ -235,10 +236,7 @@ contract ClockAuction is Ownable, SubBase {
 
         address seller = auction.seller;
         _removeAuction(_tokenId);
-        uint256 operCut = _computeCut(auction.bidPrice);
-        owner.transfer(operCut);
-        seller.transfer(auction.bidPrice-operCut);
-        //        seller.transfer(auction.bidPrice);
+        seller.transfer(auction.bidPrice);
         //        auction.bidder.transfer(auction.bidPrice);
         _transfer(auction.bidder, _tokenId);
     }
