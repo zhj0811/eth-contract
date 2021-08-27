@@ -36,7 +36,7 @@ contract Ownable {
         _;
     }
 
-    function transferOwnership(address newOwner) onlyOwner {
+    function transferOwnership(address newOwner) public onlyOwner {
         if (newOwner != address(0)) {
             owner = newOwner;
         }
@@ -61,7 +61,7 @@ contract SubBase {
         // it will throw if transfer fails
         nonFungibleContract.transfer(_receiver, _tokenId);
     }
-    function _createRandom() internal returns (uint256)
+    function _createRandom() internal view returns (uint256)
     {
         return uint256(keccak256(abi.encodePacked(block.difficulty, now)));
     }
@@ -105,7 +105,6 @@ contract ClockAuction is Ownable, SubBase {
 
     constructor(address _nftAddress) public{
         ERC721 candidateContract = ERC721(_nftAddress);
-        require(candidateContract.supportsInterface(InterfaceSignature_ERC721));
         nonFungibleContract = candidateContract;
         owner = msg.sender;
     }
@@ -229,16 +228,17 @@ contract ClockAuction is Ownable, SubBase {
     {
         Auction storage auction = tokenIdToAuction[_tokenId];
 
-        require(now>(auction.duration+auction.startedAt));
-        require(auction.bidPrice>auction.startingPrice);
+        require(auction.bidPrice>=auction.startingPrice);
 
+        if (now <(auction.duration+auction.startedAt)) {
+            require(msg.sender == auction.seller, "only seller");
+        }
         emit AuctionSuccessful(_tokenId, auction.bidPrice, auction.bidder);
 
         address seller = auction.seller;
-        _removeAuction(_tokenId);
         seller.transfer(auction.bidPrice);
-        //        auction.bidder.transfer(auction.bidPrice);
         _transfer(auction.bidder, _tokenId);
+        _removeAuction(_tokenId);
     }
 
     /// @dev Cancels an auction that hasn't been won yet.
@@ -252,8 +252,8 @@ contract ClockAuction is Ownable, SubBase {
         Auction storage auction = tokenIdToAuction[_tokenId];
         //        require(_isOnAuction(auction));
         address seller = auction.seller;
-        require(msg.sender == seller);
-        if (auction.bidPrice>auction.startingPrice) {
+        require(msg.sender == seller || msg.sender == auction.bidder, "only seller and bidder cancel auction");
+        if (auction.bidPrice>=auction.startingPrice) {
             auction.bidder.transfer(auction.bidPrice);
         }
         _cancelAuction(_tokenId, seller);

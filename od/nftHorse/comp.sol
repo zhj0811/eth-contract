@@ -152,7 +152,7 @@ contract ClockCompetition is Ownable, SubBase {
         }
 
         for(i =1; i<=competition.totalBetCount; i++ ) {
-            Vote bet = competition.bets[i];
+            Vote storage bet = competition.bets[i];
             bet.voter.transfer(bet.count-CANCEL_CUT_BET_AMOUNT);
         }
 
@@ -180,7 +180,7 @@ contract ClockCompetition is Ownable, SubBase {
     returns (uint256)
     {
         //        Vote[] _votes;
-        uint256[] _horses;
+        uint256[] storage _horses;
         Competition memory comp = Competition({
         count: uint16(_count),
         totalPoolValue:0,
@@ -262,10 +262,10 @@ contract ClockCompetition is Ownable, SubBase {
         uint256 winnerValue = _comp.totalPoolValue*WINNER_CUT/10000;
         _comp.players[tempId].transfer(winnerValue);
         uint256 voterValue = _comp.totalPoolValue - _comp.totalPoolValue*CONTRACT_CUT/10000 -winnerValue;
-        uint256[] voters = _comp.tokenIdToBet[tempId];
+        uint256[] storage voters = _comp.tokenIdToBet[tempId];
         uint256 winnerPool = _comp.tokenIdToPool[tempId];
         for (i=0; i<voters.length; i++){
-            Vote bet = _comp.bets[voters[i]] ;
+            Vote storage bet = _comp.bets[voters[i]] ;
             bet.voter.transfer(bet.count*voterValue/winnerPool);
         }
 
@@ -275,7 +275,7 @@ contract ClockCompetition is Ownable, SubBase {
     function getComp(uint256 _id) external view
     returns(uint256 count, uint256[] horses, uint256 totalPoolValue, uint64 duration, uint64 startedAt)
     {
-        Competition storage comp = compIdToCompetition[_compId];
+        Competition storage comp = compIdToCompetition[_id];
         count = uint256(comp.count);
         horses = comp.horses;
         totalPoolValue = comp.totalPoolValue;

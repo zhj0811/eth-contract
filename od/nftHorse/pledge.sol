@@ -67,7 +67,7 @@ contract SubBase {
         // it will throw if transfer fails
         nonFungibleContract.transfer(_receiver, _tokenId);
     }
-    function _createRandom() internal returns (uint256)
+    function _createRandom() internal view returns (uint256)
     {
         return uint256(keccak256(abi.encodePacked(block.difficulty, now)));
     }
@@ -89,7 +89,6 @@ contract ClockPledge is Ownable, SubBase {
 
     constructor(address _nftAddress) public{
         ERC721 candidateContract = ERC721(_nftAddress);
-        require(candidateContract.supportsInterface(InterfaceSignature_ERC721));
         nonFungibleContract = candidateContract;
         owner = msg.sender;
     }
@@ -98,7 +97,7 @@ contract ClockPledge is Ownable, SubBase {
         fungibleContract = ERC20(_address);
     }
 
-    function addPledge(uint256 _value) payable {
+    function addPledge(uint256 _value) public {
         fungibleContract.transferFrom(msg.sender, this, _value);
         Pledge storage pledge = addressToPledge[msg.sender];
         if (pledge.startedAt != 0) {

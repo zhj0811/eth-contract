@@ -109,7 +109,6 @@ contract ClockTame is SubBase, Ownable{
 
     constructor(address _nftAddress) public{
         ERC721 candidateContract = ERC721(_nftAddress);
-        require(candidateContract.supportsInterface(InterfaceSignature_ERC721));
         nonFungibleContract = candidateContract;
         owner = msg.sender;
     }
@@ -137,7 +136,7 @@ contract ClockTame is SubBase, Ownable{
 
     function joinTame() public {
         require(startTime > 0);
-        require(_getCurrentPledgeValue(msg.sender)>30);
+        require(_getCurrentPledgeValue(msg.sender)>=(10*(10**18)));
         require(!allUsers[periods][msg.sender]);
         participants.push(msg.sender);
         allUsers[periods][msg.sender]=true;
@@ -185,5 +184,9 @@ contract ClockTame is SubBase, Ownable{
         }
 
         _returnzero();
+    }
+
+    function isJoined() public view returns (bool){
+        return allUsers[periods][msg.sender];
     }
 }
