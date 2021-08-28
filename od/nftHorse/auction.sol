@@ -44,9 +44,15 @@ contract Ownable {
 
 }
 
+contract Pledge {
+    function getAuctionValue(address _own) public view returns(uint256);
+}
+
 contract SubBase {
     ERC721 public nonFungibleContract;
     bytes4 constant InterfaceSignature_ERC721 = bytes4(0x9a20483d);
+
+    Pledge public pledgeContract;
 
     function _owns(address _claimant, uint256 _tokenId) internal view returns (bool) {
         return (nonFungibleContract.ownerOf(_tokenId) == _claimant);
@@ -109,6 +115,9 @@ contract ClockAuction is Ownable, SubBase {
         owner = msg.sender;
     }
 
+    function setPledgeAddress(address _address) external onlyOwner {
+        pledgeContract = Pledge(_address);
+    }
 
     /// @dev Adds an auction to the list of open auctions. Also fires the
     ///  AuctionCreated event.
@@ -172,7 +181,7 @@ contract ClockAuction is Ownable, SubBase {
         require(_startingPrice == uint256(uint128(_startingPrice)));
         require(_endingPrice == uint256(uint128(_endingPrice)));
         require(_duration == uint256(uint64(_duration)));
-
+        // require(pledgeContract.getAuctionValue(msg.sender)>=(10*(10**18)), "auction pledge not enough");
         require(_owns(msg.sender, _tokenId));
         _escrow(msg.sender, _tokenId);
         Auction memory auction = Auction(

@@ -41,9 +41,9 @@ contract ERC721 {
 }
 
 contract Pledge {
-    function getCurrentStakeOfAddress(address _own) public view returns(uint256);
-    function getCurrentPledgeValue(address _own) external view returns(uint256);
-    function updatePledgeTime(address _own) public;
+    function getTameStake(address _own) public view returns(uint256);
+    function getTameValue(address _own) external view returns(uint256);
+    function updateTamePledgeTime(address _own) public;
 }
 
 contract SubBase {
@@ -77,16 +77,16 @@ contract SubBase {
 
     function _getCurrentStakeOfAddress(address _own) internal view returns(uint256)
     {
-        return pledgeContract.getCurrentStakeOfAddress(_own);
+        return pledgeContract.getTameStake(_own);
     }
 
     function _getCurrentPledgeValue(address _own) internal view returns(uint256)
     {
-        return pledgeContract.getCurrentPledgeValue(_own);
+        return pledgeContract.getTameValue(_own);
     }
 
     function _updatePledgeTime(address _own) internal{
-        return pledgeContract.updatePledgeTime(_own);
+        return pledgeContract.updateTamePledgeTime(_own);
     }
 }
 
