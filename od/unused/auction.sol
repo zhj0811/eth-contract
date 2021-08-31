@@ -44,14 +44,9 @@ contract Ownable {
 
 }
 
-contract Pledge {
-    function getPledgeInfo(address _own) public view returns(uint256 balance, uint256 createdAt);
-}
-
 contract SubBase {
     ERC721 public nonFungibleContract;
     bytes4 constant InterfaceSignature_ERC721 = bytes4(0x9a20483d);
-    Pledge public pledgeContract;
 
     function _owns(address _claimant, uint256 _tokenId) internal view returns (bool) {
         return (nonFungibleContract.ownerOf(_tokenId) == _claimant);
@@ -70,14 +65,8 @@ contract SubBase {
     {
         return uint256(keccak256(abi.encodePacked(block.difficulty, now)));
     }
-
-    function _meetPledged(address _own) internal view returns(bool) {
-        uint256 value;
-        uint256 created;
-        (value, created) = pledgeContract.getPledgeInfo(_own);
-        return (value>=(10*(10**18))&&((now-created)>=60*24*3600));
-    }
 }
+
 
 
 contract ClockAuction is Ownable, SubBase {
@@ -125,10 +114,6 @@ contract ClockAuction is Ownable, SubBase {
 
     function setDeveloperAddress(address _developer) public onlyOwner {
         developer=_developer;
-    }
-
-    function setPledgeAddress(address _address) external onlyOwner {
-        pledgeContract = Pledge(_address);
     }
 
 
@@ -196,7 +181,6 @@ contract ClockAuction is Ownable, SubBase {
         require(_duration == uint256(uint64(_duration)));
 
         require(_owns(msg.sender, _tokenId));
-        require(_meetPledged(msg.sender), "not meet pledge");
         _escrow(msg.sender, _tokenId);
         Auction memory auction = Auction(
             msg.sender,
@@ -227,7 +211,7 @@ contract ClockAuction is Ownable, SubBase {
         require(_isOnAuction(auction));
         require(_bidAmount>=auction.startingPrice);
         require(_bidAmount>auction.bidPrice);
-        require(_meetPledged(msg.sender), "not meet pledge");
+
         if (auction.bidPrice>0) {
             auction.bidder.transfer(auction.bidPrice);
         }

@@ -41,8 +41,8 @@ contract ERC721 {
 }
 
 contract Pledge {
-    function getTameStake(address _own) public view returns(uint256);
-    function getTameValue(address _own) external view returns(uint256);
+    function getTameStake(address _own) public view returns(uint256 stake);
+    function getPledgeInfo(address _own) public view returns(uint256 balance, uint256 createdAt);
     function updateTamePledgeTime(address _own) public;
 }
 
@@ -80,9 +80,11 @@ contract SubBase {
         return pledgeContract.getTameStake(_own);
     }
 
-    function _getCurrentPledgeValue(address _own) internal view returns(uint256)
-    {
-        return pledgeContract.getTameValue(_own);
+    function _meetPledged(address _own) internal view returns(bool) {
+        uint256 value;
+        uint256 created;
+        (value, created) = pledgeContract.getPledgeInfo(_own);
+        return (value>=(10*(10**18))&&((now-created)>=30*24*3600));
     }
 
     function _updatePledgeTime(address _own) internal{
@@ -136,7 +138,7 @@ contract ClockTame is SubBase, Ownable{
 
     function joinTame() public {
         require(startTime > 0);
-        require(_getCurrentPledgeValue(msg.sender)>=(10*(10**18)));
+        require(_meetPledged(msg.sender), "not meet pledge");
         require(!allUsers[periods][msg.sender]);
         participants.push(msg.sender);
         allUsers[periods][msg.sender]=true;

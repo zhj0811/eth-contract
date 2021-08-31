@@ -1328,6 +1328,10 @@ abstract contract Ownable is Context {
     }
 }
 
+abstract contract Pledge {
+    function getPledgeInfo(address _own) public virtual view returns(uint256 balance, uint256 createdAt);
+}
+
 // File: contracts/Lostboy.sol
 contract HorseContract is ERC721Enumerable, Ownable {
 
@@ -1391,6 +1395,19 @@ contract HorseContract is ERC721Enumerable, Ownable {
         // _safeMint(msg.sender, 0);
 
         // _createHorse(0,0,0,0,msg.sender,[uint16(0),uint16(0),uint16(0),uint16(0),uint16(0)], false);
+    }
+
+    Pledge public pledgeContract;
+
+    function setPledgeAddress(address _address) external onlyOwner {
+        pledgeContract = Pledge(_address);
+    }
+
+    function _meetPledged(address _own) internal view returns(bool) {
+        uint256 value;
+        uint256 created;
+        (value, created) = pledgeContract.getPledgeInfo(_own);
+        return (value>=(10*(10**18))&&((block.timestamp-created)>=60*24*3600));
     }
 
 
@@ -1600,17 +1617,6 @@ contract HorseContract is ERC721Enumerable, Ownable {
         return true;
     }
 
-    /// @dev Internal check to see if a given sire and matron are a valid mating pair for
-    ///  breeding via auction (i.e. skips ownership and siring approval checks).
-    function _canBreedWithViaAuction(uint256 _matronId, uint256 _sireId)
-    internal
-    view
-    returns (bool)
-    {
-        Horse storage matron = horses[_matronId];
-        Horse storage sire = horses[_sireId];
-        return _isValidMatingPair(matron, _matronId, sire, _sireId);
-    }
 
     /// @notice Checks to see if two cats can breed together, including checks for
     ///  ownership and siring approvals. Does NOT check that both cats are ready for
@@ -1758,6 +1764,8 @@ contract HorseContract is ERC721Enumerable, Ownable {
         // Make sure sire isn't pregnant, or in the middle of a siring cooldown
         require(_isReadyToBreed(sire));
         require(sire.sex);
+
+        require(_meetPledged(msg.sender), "not meet pledge");
 
         // All checks passed, kitty gets pregnant!
         _breedWith(_matronId, _sireId);
