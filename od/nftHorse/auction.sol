@@ -227,6 +227,9 @@ contract ClockAuction is Ownable, SubBase {
         require(_bidAmount>=auction.startingPrice);
         require(_bidAmount>auction.bidPrice);
         require(_meetPledged(msg.sender), "not meet pledge");
+
+        emit AuctionBid(_tokenId, _bidAmount, msg.sender);
+
         if (auction.bidPrice>0) {
             auction.bidder.transfer(auction.bidPrice);
         }
@@ -239,13 +242,11 @@ contract ClockAuction is Ownable, SubBase {
             developerBalance +=reward;
             ownerBalance += reward*4;
             seller.transfer(_bidAmount-5*reward);
-
             _transfer(msg.sender, _tokenId);
         } else {
             auction.bidPrice=uint128(_bidAmount);
             auction.bidder=msg.sender;
         }
-        emit AuctionBid(_tokenId, _bidAmount, msg.sender);
     }
 
     function bidEnd(uint256 _tokenId)

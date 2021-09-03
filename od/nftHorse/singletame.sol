@@ -187,7 +187,7 @@ contract ClockTame is SubBase, Ownable{
         _returnzero();
     }
 
-    function isJoined() public view returns (bool){
-        return allUsers[periods][msg.sender];
+    function isJoined(address _address) public view returns (bool){
+        return allUsers[periods][_address];
     }
 }
