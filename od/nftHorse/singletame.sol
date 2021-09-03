@@ -30,7 +30,6 @@ contract ERC721 {
     function balanceOf(address _owner) public view returns (uint256 balance);
     function ownerOf(uint256 _tokenId) external view returns (address owner);
     function approve(address _to, uint256 _tokenId) external;
-    function transfer(address _to, uint256 _tokenId) external;
     function transferFrom(address _from, address _to, uint256 _tokenId) external;
 
     // Events
@@ -68,7 +67,7 @@ contract SubBase {
 
     function _transfer(address _receiver, uint256 _tokenId) internal {
         // it will throw if transfer fails
-        nonFungibleContract.transfer(_receiver, _tokenId);
+        nonFungibleContract.transferFrom(this, _receiver, _tokenId);
     }
 
     function _createRandom() internal view returns (uint256) {

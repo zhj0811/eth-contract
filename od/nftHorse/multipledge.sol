@@ -39,7 +39,6 @@ contract ERC721 {
     function balanceOf(address _owner) public view returns (uint256 balance);
     function ownerOf(uint256 _tokenId) external view returns (address owner);
     function approve(address _to, uint256 _tokenId) external;
-    function transfer(address _to, uint256 _tokenId) external;
     function transferFrom(address _from, address _to, uint256 _tokenId) external;
 
     // Events
@@ -65,7 +64,7 @@ contract SubBase {
 
     function _transfer(address _receiver, uint256 _tokenId) internal {
         // it will throw if transfer fails
-        nonFungibleContract.transfer(_receiver, _tokenId);
+        nonFungibleContract.transferFrom(this, _receiver, _tokenId);
     }
     function _createRandom() internal view returns (uint256)
     {
@@ -132,6 +131,64 @@ contract ClockPledge is Ownable, SubBase {
     function getPledgeInfo(address _own) public view returns(uint256 balance, uint256 createdAt) {
         balance = pledgeValues[_own];
         createdAt = pledgeTimes[_own];
+    }
+
+    mapping (address => uint256) compHostValues;
+    mapping (address => uint256) compHostTimes;
+    event CompHostPledgeCreated(address owner, uint256 value);
+    event CompHostPledgeCancelled(address owner, uint256 value);
+
+    function createCompHostPledge(uint256 _value) public {
+        require(compHostValues[msg.sender]==0, "cannot add pledge");
+
+        fungibleContract.transferFrom(msg.sender, this, _value);
+
+        compHostValues[msg.sender] += _value;
+        compHostTimes[msg.sender] = now;
+
+        emit CompHostPledgeCreated(msg.sender, _value);
+    }
+
+    function getCompHostPledgeInfo(address _own) public view returns(uint256 balance, uint256 createdAt) {
+        balance = compHostValues[_own];
+        createdAt = compHostTimes[_own];
+    }
+
+    function cancelCompHostPledge() public {
+        require(compHostValues[msg.sender]>0, "no pledge");
+        fungibleContract.transfer(msg.sender, compHostValues[msg.sender]);
+        emit CompHostPledgeCancelled(msg.sender, compHostValues[msg.sender]);
+        delete compHostValues[msg.sender];
+        delete compHostTimes[msg.sender];
+    }
+
+    mapping (address => uint256) compPartValues;
+    mapping (address => uint256) compPartTimes;
+    event CompPartPledgeCreated(address owner, uint256 value);
+    event CompPartPledgeCancelled(address owner, uint256 value);
+
+    function createCompPartPledge(uint256 _value) public {
+        require(compPartValues[msg.sender]==0, "cannot add pledge");
+
+        fungibleContract.transferFrom(msg.sender, this, _value);
+
+        compPartValues[msg.sender] += _value;
+        compPartTimes[msg.sender] = now;
+
+        emit CompPartPledgeCreated(msg.sender, _value);
+    }
+
+    function getCompPartPledgeInfo(address _own) public view returns(uint256 balance, uint256 createdAt) {
+        balance = compPartValues[_own];
+        createdAt = compPartTimes[_own];
+    }
+
+    function cancelCompPartPledge() public {
+        require(compPartValues[msg.sender]>0, "no pledge");
+        fungibleContract.transfer(msg.sender, compPartValues[msg.sender]);
+        emit CompPartPledgeCancelled(msg.sender, compPartValues[msg.sender]);
+        delete compPartValues[msg.sender];
+        delete compPartTimes[msg.sender];
     }
 
 

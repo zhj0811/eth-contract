@@ -39,7 +39,6 @@ contract ERC721 {
     function balanceOf(address _owner) public view returns (uint256 balance);
     function ownerOf(uint256 _tokenId) external view returns (address owner);
     function approve(address _to, uint256 _tokenId) external;
-    function transfer(address _to, uint256 _tokenId) external;
     function transferFrom(address _from, address _to, uint256 _tokenId) external;
 
     // Events
@@ -65,7 +64,7 @@ contract SubBase {
 
     function _transfer(address _receiver, uint256 _tokenId) internal {
         // it will throw if transfer fails
-        nonFungibleContract.transfer(_receiver, _tokenId);
+        nonFungibleContract.transferFrom(this, _receiver, _tokenId);
     }
     function _createRandom() internal view returns (uint256)
     {
@@ -75,24 +74,12 @@ contract SubBase {
 
 contract ClockPledge is Ownable, SubBase {
 
-    struct Pledge {
-        uint256 value;
-        uint64 startedAt;
-    }
+    event PledgeCreated(address owner, uint256 value);
+    event PledgeCancelled(address owner, uint256 value);
 
-    event AuctionPledgeCreated(address owner, uint256 value);
-    event AuctionPledgeCancelled(address owner, uint256 value);
 
-    event TamePledgeCreated(address owner, uint256 value);
-    event TamePledgeCancelled(address owner, uint256 value);
-
-    event BreedPledgeCreated(address owner, uint256 value);
-    event BreedPledgeCancelled(address owner, uint256 value);
-
-    mapping (address => Pledge) tamePledge;
-    mapping (address => uint256) auctionValues;
-    mapping (address => uint256) breedValues;
-
+    mapping (address => uint256) pledgeValues;
+    mapping (address => uint256) pledgeTimes;
 
     mapping (address => uint256) stakes;
 
@@ -106,90 +93,46 @@ contract ClockPledge is Ownable, SubBase {
         fungibleContract = ERC20(_address);
     }
 
-    function createTamePledge(uint256 _value) public {
-        Pledge storage pledge = tamePledge[msg.sender];
-        require(pledge.value==0, "cannot add pledge");
+    function createPledge(uint256 _value) public {
+        require(pledgeValues[msg.sender]==0, "cannot add pledge");
 
         fungibleContract.transferFrom(msg.sender, this, _value);
 
-        //        if (pledge.startedAt != 0) {
-        //            stakes[msg.sender] = stakes[msg.sender] + ((now-pledge.startedAt)*(pledge.value))/(3600*24);
-        //        }
-        pledge.value += _value;
-        pledge.startedAt =uint64(now);
+        pledgeValues[msg.sender] += _value;
+        pledgeTimes[msg.sender] = now;
 
-        emit TamePledgeCreated(msg.sender, _value);
+        emit PledgeCreated(msg.sender, _value);
     }
 
-    function cancelTamePledge() public {
-        uint256 value=tamePledge[msg.sender].value;
-        require(value>0, "no pledge");
-        fungibleContract.transfer(msg.sender, value);
-        emit TamePledgeCancelled(msg.sender, value);
-        delete tamePledge[msg.sender];
+    function cancelPledge() public {
+        require(pledgeValues[msg.sender]>0, "no pledge");
+        fungibleContract.transfer(msg.sender, pledgeValues[msg.sender]);
+        emit PledgeCancelled(msg.sender, pledgeValues[msg.sender]);
+        delete pledgeValues[msg.sender];
+        delete pledgeTimes[msg.sender];
+        delete stakes[msg.sender];
     }
 
     function getTameStake(address _own) public view
-    returns(uint256)
+    returns(uint256 stake)
     {
-        Pledge storage pledge = tamePledge[_own];
-        //        uint256 _stake = stakes[_own] + ((now-pledge.startedAt)*(pledge.value))/(3600*24);
-        uint256 _stake = ((now-pledge.startedAt)*(pledge.value))/(3600*24);
-        return _stake;
-    }
-
-
-    function getTameValue(address _own) external view returns(uint256) {
-        return tamePledge[_own].value;
+        if (stakes[_own]>pledgeTimes[_own]){
+            stake = ((now-stakes[_own])*pledgeValues[_own])/(3600*24);
+        } else {
+            stake = ((now-pledgeTimes[_own])*pledgeValues[_own])/(3600*24);
+        }
     }
 
     function updateTamePledgeTime(address _own) onlyAdmin public {
-        Pledge storage pledge = tamePledge[_own];
-        require(pledge.startedAt >0);
-        pledge.startedAt = uint64(now);
-        delete stakes[msg.sender];
-        tamePledge[_own] = pledge;
+        // require(pledgeTimes[_own] >0);
+        stakes[_own]=now;
     }
 
-    function createAuctionPledge(uint256 _value) public {
-        require(auctionValues[msg.sender]==0, "cannot add pledge");
-        fungibleContract.transferFrom(msg.sender, this, _value);
-
-        auctionValues[msg.sender]=_value;
-        emit AuctionPledgeCreated(msg.sender, _value);
+    function getPledgeInfo(address _own) public view returns(uint256 balance, uint256 createdAt) {
+        balance = pledgeValues[_own];
+        createdAt = pledgeTimes[_own];
     }
 
-    function cancelAuctionPledge() public {
-        uint256 value=auctionValues[msg.sender];
-        require(value>0, "no pledge");
-        fungibleContract.transfer(msg.sender, value);
-        emit AuctionPledgeCancelled(msg.sender, value);
-        delete auctionValues[msg.sender];
-    }
-
-    function getAuctionValue(address _own) external view returns(uint256) {
-        return auctionValues[_own];
-    }
-
-    function createBreedPledge(uint256 _value) public {
-        require(breedValues[msg.sender]==0, "cannot add pledge");
-        fungibleContract.transferFrom(msg.sender, this, _value);
-
-        breedValues[msg.sender]=_value;
-        emit BreedPledgeCreated(msg.sender, _value);
-    }
-
-    function cancelBreedPledge() public {
-        uint256 value=breedValues[msg.sender];
-        require(value>0, "no pledge");
-        fungibleContract.transfer(msg.sender, value);
-        emit BreedPledgeCancelled(msg.sender, value);
-        delete breedValues[msg.sender];
-    }
-
-    function getBreedValue(address _own) external view returns(uint256) {
-        return breedValues[_own];
-    }
 
     function addAdmin(address _new) public onlyOwner {
         admins[_new] = true;
