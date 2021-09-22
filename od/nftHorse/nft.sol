@@ -1381,7 +1381,7 @@ contract HorseContract is ERC721Enumerable, Ownable {
     ///  address for siring at any time. A zero value means no approval is outstanding.
     mapping (uint256 => address) public sireAllowedToAddress;
 
-
+    uint256 private _seed = 0;
 
     constructor(
         string memory name,
@@ -1465,54 +1465,37 @@ contract HorseContract is ERC721Enumerable, Ownable {
         return newKittenId;
     }
 
-    function _createRandom() internal view returns (uint256)
+    function _createRandom() internal returns (uint256)
     {
-        return uint256(keccak256(abi.encodePacked(block.difficulty, block.timestamp, horses.length)));
+        _seed++;
+        return uint256(keccak256(abi.encodePacked(block.difficulty, block.timestamp, _seed)));
     }
 
-    function _createGen0Gifts()
-    internal view
-    returns (uint16[5] memory gifts)
-    {
+    function _createGift() internal returns (uint16) {
         uint index = uint(_createRandom()%100);
         uint temp = 0;
         for (uint i=0; i<11;i++) {
             temp = temp + giftsArr[i];
             if (index < temp) {
                 temp = i;
-                break;
+                return uint16(i);
             }
         }
+        return uint16(temp);
+    }
 
-        for (uint i =0; i <5; i++){
-            if (temp == 0) {
-                break;
-            }
-            if (i == 4){
-                gifts[i] == temp;
-                break;
-            }
-            index = (uint(_createRandom()%100)%(temp+1));
-            gifts[i] = uint16(index);
-            temp = temp - index;
+    function _createGen0Gifts()
+    internal
+    returns (uint16[5] memory gifts)
+    {
+        for (uint i =0; i <5; i++) {
+            gifts[i] = _createGift();
         }
     }
 
     function _mixGifts(uint16[5] storage _matron, uint16[5] storage _sire) internal view returns(uint16[5] memory gifts) {
-        uint16 m = _matron[0]+_matron[1]+_matron[2]+_matron[3]+_matron[4];
-        uint16 s = _sire[0]+_sire[1]+_sire[2]+_sire[3]+_sire[4];
-        uint16 temp = (m*3 +s*7)/10 ;
         for (uint i =0; i <5; i++){
-            if (temp == 0) {
-                break;
-            }
-            if (i == 4){
-                gifts[i] == temp;
-                break;
-            }
-            uint16 index = uint16(_createRandom()%100)%(temp+1);
-            gifts[i] = index;
-            temp = temp - index;
+            gifts[i] = (_matron[i]*3+_sire[i]*7)/10;
         }
         return gifts;
     }
@@ -1673,7 +1656,7 @@ contract HorseContract is ERC721Enumerable, Ownable {
     uint256 public gen0CreatedCount;
 
     function _createGen0Sex()
-    internal view
+    internal
     returns (bool)
     {
         uint index = uint(_createRandom()%6789);
@@ -1696,7 +1679,7 @@ contract HorseContract is ERC721Enumerable, Ownable {
     }
 
     function _createGen1Sex()
-    internal view
+    internal
     returns (bool)
     {
         uint index = uint(_createRandom()%2);
@@ -1719,7 +1702,7 @@ contract HorseContract is ERC721Enumerable, Ownable {
             horseOwner = owner();
         }
         require(gen0CreatedCount < GEN0_CREATION_LIMIT);
-        require(_canCreateGen0Horse());
+        // require(_canCreateGen0Horse());
         bool sex = _createGen0Sex();
         uint256 genes = _createRandom();
         uint16[5] memory gifts = _createGen0Gifts();

@@ -123,7 +123,7 @@ contract ClockTame is SubBase, Ownable{
     }
 
 
-    function createTame(uint256[10] _hs) public {
+    function createTame(uint256[10] _hs) public onlyOwner {
         periods +=1;
         require(startTime == 0);
 
@@ -189,5 +189,9 @@ contract ClockTame is SubBase, Ownable{
 
     function isJoined(address _address) public view returns (bool){
         return allUsers[periods][_address];
+    }
+
+    function getParticipants() public view returns (address[]) {
+        return participants;
     }
 }
