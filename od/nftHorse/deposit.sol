@@ -66,37 +66,38 @@ abstract contract Ownable {
 contract Deposit is Ownable{
     ERC20 public fungibleContract;
 
-    uint256 public erc20TokenValue;
-    uint256 public depositLimit;
+    uint256 public erc20TokenValue = 34 * 10 ** 16;
+    uint256 public depositLimit = 10* 10**18;
     address public erc20AdminAddress;
-    mapping (address => uint256) public depositedValue;
+    mapping (address => bool) public depositedMap;
 
     event DepositSuccess(address addr, uint256 value);
 
     constructor(){}
 
+    receive() external payable {
+        require(msg.value == erc20TokenValue, "not integer token");
+        require(!depositedMap[msg.sender], "recharged");
+        require(fungibleContract.transferFrom(erc20AdminAddress, msg.sender, depositLimit), "transfer erc20 token failed");
+        depositedMap[msg.sender] = true;
+        emit DepositSuccess(msg.sender, depositLimit);
+    }
+
     function setERC20Address(address _address) external onlyOwner {
         fungibleContract = ERC20(_address);
     }
 
-    function setERC20TokenValue(uint256 _wei) external onlyOwner {
+    function setERC20TokenValueCount(uint256 _wei, uint256 _limit) external onlyOwner {
         erc20TokenValue = _wei;
-    }
-
-    function setDepositLimit(uint256 _limit) public onlyOwner{
         depositLimit = _limit;
     }
 
+    //    function setDepositLimit(uint256 _limit) public onlyOwner{
+    //        depositLimit = _limit;
+    //    }
+
     function setERC20AdminAddress(address _address) external onlyOwner {
         erc20AdminAddress = _address;
-    }
-
-    function deposit() public payable{
-        require(msg.value%erc20TokenValue == 0, "not integer token");
-        uint256 _value = msg.value/erc20TokenValue * (10**18);
-        require((_value+depositedValue[msg.sender]) <= depositLimit, "out of erc20 limit");
-        require(fungibleContract.transferFrom(erc20AdminAddress, msg.sender, _value), "transfer erc20 token failed");
-        depositedValue[msg.sender]+=_value;
     }
 
     function withdrawBalance(address payable _address) external onlyOwner {
