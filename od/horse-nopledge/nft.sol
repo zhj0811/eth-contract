@@ -1362,14 +1362,8 @@ contract HorseContract is ERC721Enumerable, Ownable {
     /*** CONSTANTS ***/
     uint16[11] public giftsArr = [12, 12, 12, 12, 12, 15, 9, 7, 5, 3, 1];
 
-    /*** STORAGE ***/
 
-    /// @dev An array containing the Horse struct for all Kitties in existence. The ID
-    ///  of each cat is actually an index into this array. Note that ID 0 is a negacat,
-    ///  the unHorse, the mythical beast that is the parent of all gen0 cats. A bizarre
-    ///  creature that is both matron and sire... to itself! Has an invalid genetic code.
-    ///  In other words, cat ID 0 is invalid... ;-)
-    Horse[] horses;
+   mapping (uint256 => Horse) horses;
 
 
     /// @dev A mapping from HorseIDs to an address that has been approved to use
@@ -1387,7 +1381,6 @@ contract HorseContract is ERC721Enumerable, Ownable {
         m_BaseURI = baseURI;
         deployTime = block.timestamp;
         // Horse memory _hor;
-        // horses.push(_hor);
         // _safeMint(msg.sender, 0);
 
         // _createHorse(0,0,0,0,msg.sender,[uint16(0),uint16(0),uint16(0),uint16(0),uint16(0)], false);
@@ -1425,8 +1418,8 @@ contract HorseContract is ERC721Enumerable, Ownable {
         sex: _sex
         });
 
-        uint256 newKittenId = horses.length;
-        horses.push(_horse);
+        uint256 newKittenId = totalSupply();
+        horses[newKittenId] = _horse;
 
         // It's probably never going to happen, 4 billion cats is A LOT, but
         // let's just be 100% sure we never let this happen.
@@ -1579,7 +1572,6 @@ contract HorseContract is ERC721Enumerable, Ownable {
             return false;
         }
 
-        // Everything seems cool! Let's get DTF.
         return true;
     }
 
@@ -1620,12 +1612,12 @@ contract HorseContract is ERC721Enumerable, Ownable {
     }
 
 
-    uint256 public constant GEN0_CREATION_LIMIT = 6789;
+    uint256 public constant GEN0_CREATION_LIMIT = 10000;
 
-    uint32 public constant GEN0_MALE_CREATION_LIMIT = 6111;
-    uint32 public constant GEN0_FEMALE_CREATION_LIMIT = 678;
+    uint32 public constant GEN0_MALE_CREATION_LIMIT = 9000;
+    uint32 public constant GEN0_FEMALE_CREATION_LIMIT = 1000;
 
-    uint32 public constant GEN1_CREATION_LIMIT = 3210;
+//    uint32 public constant GEN1_CREATION_LIMIT = 3210;
 
     uint256 public constant WEEK_DURATION = 3600*24*7;
     uint256 public deployTime;
@@ -1642,8 +1634,8 @@ contract HorseContract is ERC721Enumerable, Ownable {
     internal
     returns (bool)
     {
-        uint index = uint(_createRandom()%6789);
-        if ((index < GEN0_FEMALE_CREATION_LIMIT) || (gen0MaleCreatedCount == GEN0_MALE_CREATION_LIMIT)) {
+        uint index = uint(_createRandom()%GEN0_CREATION_LIMIT);
+        if ((index < GEN0_FEMALE_CREATION_LIMIT && gen0FemaleCreatedCount < GEN0_FEMALE_CREATION_LIMIT) || (gen0MaleCreatedCount == GEN0_MALE_CREATION_LIMIT)) {
             return false;
         }
         return true;
@@ -1653,8 +1645,10 @@ contract HorseContract is ERC721Enumerable, Ownable {
     internal
     returns(bool)
     {
-        uint16 index = uint16(_createRandom()%3390);
-        if ((index > GEN1_CREATION_LIMIT) || (gen1CreatedCount == GEN1_CREATION_LIMIT)) {
+        //gen1 failed rate 5.3%
+        uint16 index = uint16(_createRandom()%1000);
+//        if ((index > GEN1_CREATION_LIMIT) || (gen1CreatedCount == GEN1_CREATION_LIMIT)) {
+        if ( index < 53 ) {
             return false;
         }
         gen1CreatedCount++;
