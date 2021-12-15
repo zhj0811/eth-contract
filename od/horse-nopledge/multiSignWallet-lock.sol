@@ -16,6 +16,9 @@ contract MultiSigWallet {
     ERC20 public erc20Contract;
     mapping (address => bool) private managers;
 
+    uint private deployTime;
+    uint public constant lockDuration = 24*3600*365*3;
+
     modifier onlyOwner{
         require(owner == msg.sender);
         _;
@@ -45,6 +48,7 @@ contract MultiSigWallet {
     constructor() {
         owner = msg.sender;
         managerCount = 1;
+        deployTime = block.timestamp;
     }
 
     event DepositFunds(address from, uint amount);
@@ -80,6 +84,7 @@ contract MultiSigWallet {
 
     function transferTo(address to,  uint amount) isManager public{
         //        require(address(this).balance >= amount);
+        require(block.timestamp > (deployTime + lockDuration), "lock 3 years");
         uint transactionId = txIds++;
 
         Transaction memory transaction = Transaction({
