@@ -256,7 +256,7 @@ contract ClockAuction is Ownable, SubBase {
         emit AuctionBid(_tokenId, _bidAmount, msg.sender);
 
         if (auction.bidPrice>0) {
-            erc20Contract.transferFrom(address(this), auction.bidder, auction.bidPrice);
+            erc20Contract.transfer(auction.bidder, auction.bidPrice);
         }
 
         if (_bidAmount >= auction.endingPrice) {
@@ -264,7 +264,7 @@ contract ClockAuction is Ownable, SubBase {
             uint256 reward = _computeCut(_bidAmount);
             developerBalance +=reward;
             ownerBalance += reward*4;
-            erc20Contract.transferFrom(address(this), auction.seller, _bidAmount-5*reward);
+            erc20Contract.transfer(auction.seller, _bidAmount-5*reward);
             _removeAuction(_tokenId);
             _transfer(msg.sender, _tokenId);
         } else {
@@ -288,7 +288,7 @@ contract ClockAuction is Ownable, SubBase {
         uint256 reward = _computeCut(auction.bidPrice);
         developerBalance +=reward;
         ownerBalance += 4*reward;
-        erc20Contract.transferFrom(address(this), auction.seller, auction.bidPrice-5*reward);
+        erc20Contract.transfer(auction.seller, auction.bidPrice-5*reward);
         _transfer(auction.bidder, _tokenId);
         _removeAuction(_tokenId);
     }
@@ -306,7 +306,7 @@ contract ClockAuction is Ownable, SubBase {
         address seller = auction.seller;
         require(msg.sender == seller || msg.sender == auction.bidder, "only seller and bidder cancel auction");
         if (auction.bidPrice>=auction.startingPrice) {
-            erc20Contract.transferFrom(address(this), auction.bidder, auction.bidPrice);
+            erc20Contract.transfer(auction.bidder, auction.bidPrice);
         }
         _cancelAuction(_tokenId, seller);
     }
@@ -340,13 +340,13 @@ contract ClockAuction is Ownable, SubBase {
     function withdrawDeveloperReward() public{
         require(developerBalance>0, "no reward");
         require(developer != address(0), "invalid developer address");
-        erc20Contract.transferFrom(address(this), developer, developerBalance);
+        erc20Contract.transfer(developer, developerBalance);
         developerBalance=0;
     }
 
     function withdrawOwnerReward() public onlyOwner{
         require(ownerBalance>0, "no reward");
-        erc20Contract.transferFrom(address(this), owner(), ownerBalance);
+        erc20Contract.transfer(owner(), ownerBalance);
         ownerBalance=0;
     }
 }
