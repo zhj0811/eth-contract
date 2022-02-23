@@ -81,6 +81,8 @@ contract awaken is Ownable {
     uint256 private devBounty;
     uint256 private mainBounty;
 
+    event Received(address sender, uint256 value);
+
     constructor() {}
 
     receive() external payable {
@@ -89,6 +91,7 @@ contract awaken is Ownable {
         addrTimes[_msgSender()]++;
         devBounty += developerReward;
         mainBounty += mainReward;
+        emit Received(_msgSender(), singleValue);
     }
 
     function setDeveloper(address _dev) public onlyOwner{
