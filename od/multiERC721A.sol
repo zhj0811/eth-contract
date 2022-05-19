@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
 library Address {
     /**
@@ -1169,6 +1169,14 @@ contract NFTTypes is ERC721A, Ownable {
     constructor(string memory name_, string memory symbol_) ERC721A(name_, symbol_) {}
 
     function mint(address to, uint256 quantity) public onlyAdmin {
+
+        require(quantity != 0, 'quantity must be granter than zero');
+        require(bytes(indexToType[1]).length != 0, 'no invalid type');
+        uint256 startTokenId = _currentIndex;
+
+        tokenIdToTypeOwnership[startTokenId].typeIndex = 1;
+        tokenIdToTypeOwnership[startTokenId].quantity = quantity;
+
         _safeMint(to, quantity);
     }
 
